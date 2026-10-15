@@ -1,162 +1,162 @@
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
 
 public class bai2 {
 
     public static void main(String[] args) {
 
-        // Địa chỉ server
-        // Nếu hệ thống cung cấp IP server thì thay localhost bằng IP đó
-        String serverAddress = "36.50.135.242";
+        String serverIP = "36.50.135.242";
+        int port = 2208;
 
-        // Port theo đề bài
-        int port = 2206;
-
-        // Thay bằng mã sinh viên và mã câu hỏi của bạn
         String studentCode = "B23DCCN784";
-        String qCode = "b7rXiCnH";
+        String qCode = "mRi4P5h4"; // Thay bằng mã câu hỏi thật
 
         try {
+            DatagramSocket socket = new DatagramSocket();
 
-            // ==========================================
-            // 1. Kết nối tới Server
-            // ==========================================
+            InetAddress serverAddress =
+                    InetAddress.getByName(serverIP);
 
-            Socket socket = new Socket(serverAddress, port);
+            // =====================================
+            // a. Gửi ;studentCode;qCode
+            // =====================================
 
-            // Thời gian chờ tối đa 5 giây
-            socket.setSoTimeout(5000);
+            String request = ";" + studentCode + ";" + qCode;
 
-            System.out.println("Đã kết nối tới Server.");
+            byte[] sendData =
+                    request.getBytes(StandardCharsets.UTF_8);
 
-            // Lấy luồng vào và luồng ra
-            InputStream input = socket.getInputStream();
-            OutputStream output = socket.getOutputStream();
+            DatagramPacket sendPacket =
+                    new DatagramPacket(
+                            sendData,
+                            sendData.length,
+                            serverAddress,
+                            port
+                    );
 
-
-            // ==========================================
-            // 2. Gửi mã sinh viên và mã câu hỏi
-            // ==========================================
-
-            String request = studentCode + ";" + qCode;
-
-            output.write(request.getBytes());
-            output.flush();
+            socket.send(sendPacket);
 
             System.out.println("Đã gửi: " + request);
 
+            // =====================================
+            // b. Nhận requestId;data
+            // =====================================
 
-            // ==========================================
-            // 3. Nhận dữ liệu từ Server
-            // ==========================================
+            byte[] receiveData = new byte[4096];
 
-            byte[] buffer = new byte[4096];
+            DatagramPacket receivePacket =
+                    new DatagramPacket(
+                            receiveData,
+                            receiveData.length
+                    );
 
-            int length = input.read(buffer);
+            socket.receive(receivePacket);
 
-            if (length == -1) {
-                System.out.println("Server đã đóng kết nối.");
-                socket.close();
-                return;
+            String message = new String(
+                    receivePacket.getData(),
+                    receivePacket.getOffset(),
+                    receivePacket.getLength(),
+                    StandardCharsets.UTF_8
+            ).trim();
+
+            System.out.println("Server gửi: " + message);
+
+            // =====================================
+            // Tách requestId và data
+            // =====================================
+
+            String[] parts = message.split(";", 2);
+
+            String requestId = parts[0];
+            String data = parts[1];
+
+            // =====================================
+            // c. Tìm ký tự xuất hiện nhiều nhất
+            // =====================================
+
+            int[] count = new int[Character.MAX_VALUE + 1];
+
+            for (char c : data.toCharArray()) {
+                count[c]++;
             }
 
-            String response = new String(buffer, 0, length).trim();
+            char maxChar = data.charAt(0);
+            int maxCount = count[maxChar];
 
-            System.out.println("Dữ liệu Server gửi:");
-            System.out.println(response);
-
-
-            // ==========================================
-            // 4. Tách chuỗi thành các số nguyên
-            // ==========================================
-
-            String[] parts = response.split(",");
-
-            List<Integer> numbers = new ArrayList<>();
-
-            for (String part : parts) {
-                numbers.add(Integer.parseInt(part.trim()));
-            }
-
-
-            // ==========================================
-            // 5. Tìm khoảng cách nhỏ nhất
-            // ==========================================
-
-            int minDistance = Integer.MAX_VALUE;
-            int number1 = 0;
-            int number2 = 0;
-
-            for (int i = 0; i < numbers.size(); i++) {
-
-                for (int j = i + 1; j < numbers.size(); j++) {
-
-                    int a = numbers.get(i);
-                    int b = numbers.get(j);
-
-                    int distance = Math.abs(a - b);
-
-                    if (distance < minDistance) {
-
-                        minDistance = distance;
-
-                        number1 = a;
-                        number2 = b;
-                    }
+            for (char c : data.toCharArray()) {
+                if (count[c] > maxCount) {
+                    maxCount = count[c];
+                    maxChar = c;
                 }
             }
 
+            // =====================================
+            // Tìm các vị trí xuất hiện
+            // Vị trí tính từ 0
+            // =====================================
 
-            // ==========================================
-            // 6. Tạo kết quả
-            // ==========================================
+            StringBuilder positions = new StringBuilder();
 
-            String result = minDistance + "," + number1 + "," + number2;
+            for (int i = 0; i < data.length(); i++) {
 
-            System.out.println("Kết quả:");
-            System.out.println(result);
+    if (data.charAt(i) == maxChar) {
+        positions.append(i + 1).append(",");
+    }
+}
+            // =====================================
+            // Tạo kết quả
+            // requestId;ký_tự:vị_trí
+            // =====================================
 
+            String result =
+                    requestId + ";" +
+                    maxChar + ":" +
+                    positions;
 
-            // ==========================================
-            // 7. Gửi kết quả về Server
-            // ==========================================
+            byte[] resultData =
+                    result.getBytes(StandardCharsets.UTF_8);
 
-            output.write(result.getBytes());
-            output.flush();
+            DatagramPacket resultPacket =
+                    new DatagramPacket(
+                            resultData,
+                            resultData.length,
+                            receivePacket.getAddress(),
+                            receivePacket.getPort()
+                    );
 
-            System.out.println("Đã gửi kết quả về Server.");
+            socket.send(resultPacket);
 
+            System.out.println("Đã gửi: " + result);
 
-            // ==========================================
-            // 8. Đóng kết nối
-            // ==========================================
+            // =====================================
+            // d. Đóng socket
+            // =====================================
 
             socket.close();
 
-            System.out.println("Đã đóng kết nối.");
-
         } catch (Exception e) {
-
-            System.out.println("Có lỗi xảy ra:");
-            System.out.println(e.getMessage());
+            e.printStackTrace();
         }
     }
 }
-// Một chương trình server hỗ trợ kết nối qua giao thức TCP tại cổng 2206 (hỗ trợ thời gian giao tiếp tối đa cho mỗi yêu cầu là 5s). Yêu cầu xây dựng chương trình client thực hiện kết nối tới server trên sử dụng luồng byte dữ liệu (InputStream/OutputStream) để trao đổi thông tin theo thứ tự:
+//Một chương trình server cho phép kết nối qua giao thức UDP tại cổng 2208. Yêu cầu là xây dựng một chương trình client tương tác với server kịch bản dưới đây:
 
-a. Gửi mã sinh viên và mã câu hỏi theo định dạng studentCode;qCode.
+a. Gửi thông điệp là một chuỗi chứa mã sinh viên và mã câu hỏi theo định dạng ;studentCode;qCode.
 
-Ví dụ: B16DCCN999;FF49DC02
+Ví dụ: ;B15DCCN001;EE29C059
 
-b. Nhận dữ liệu từ server là một chuỗi các giá trị số nguyên được phân tách nhau bởi ký tự ,
+b. Nhận thông điệp từ server theo định dạng requestId; data
 
-Ví dụ: 1,3,9,19,33,20
+requestId là một chuỗi ngẫu nhiên duy nhất
+data là chuỗi dữ liệu đầu vào cần xử lý
+Ví dụ: requestId;Qnc8d5x78aldSGWWmaAAjyg3
 
-c. Thực hiện tìm giá trị khoảng cách nhỏ nhất của các phần tử nằm trong chuỗi và hai giá trị lớn nhất tạo nên khoảng cách đó. Gửi lên server chuỗi gồm "khoảng cách nhỏ nhất, số thứ nhất, số thứ hai".
+c. Tìm kiếm ký tự xuất hiện nhiều nhất trong chuỗi và gửi lên server theo định dạng “requestId;ký tự xuất hiện nhiều nhất: các vị trí xuất hiện ký tự đó”
 
-Ví dụ: 1,19,20
+Ví dụ: requestId;8:4,9,
 
-d. Đóng kết nối và kết thúc
+d. Đóng socket và kết thúc chương trình
+
+
